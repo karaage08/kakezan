@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一桁かけ算チャレンジ</title>
+
+<style>
+body {
+    font-family: sans-serif;
+    text-align: center;
+    background: linear-gradient(135deg, #75c9ff, #b7e6ff);
+    margin: 0;
+    padding: 20px;
+    color: #17324d;
+}
+
+.container {
+    max-width: 500px;
+    margin: 20px auto;
+    padding: 25px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px #0002;
+}
+
+h1 {
+    font-size: 28px;
+}
+
+.stats {
+    display: flex;
+    justify-content: space-around;
+    margin: 20px 0;
+}
+
+.stat {
+    font-size: 16px;
+}
+
+.stat strong {
+    display: block;
+    font-size: 24px;
+}
+
+#stage {
+    font-size: 18px;
+    font-weight: bold;
+    color: #1769aa;
+}
+
+#question {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 25px 0;
+}
+
+#answer {
+    width: 150px;
+    padding: 12px;
+    font-size: 28px;
+    text-align: center;
+    border: 2px solid #9ccbe9;
+    border-radius: 10px;
+}
+
+#feedback {
+    height: 110px;
+    line-height: 110px;
+    font-size: 90px;
+    font-weight: bold;
+}
+
+button {
+    padding: 12px 25px;
+    margin: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    background: #147dcc;
+    color: white;
+    cursor: pointer;
+}
+
+.hidden {
+    display: none;
+}
+
+#wrongList {
+    text-align: left;
+    line-height: 1.8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <section id="startScreen">
+        <h1>一桁かけ算チャレンジ</h1>
+        <p>制限時間は60秒！</p>
+        <p>答えを入力して、Enterキーを押そう。</p>
+
+        <p>
+            1〜5問目：2〜4 × 2〜4<br>
+            6〜10問目：2〜4 × 4〜9<br>
+            11〜15問目：5〜9 × 2〜4<br>
+            16問目以降：1〜9 × 1〜9
+        </p>
+
+        <button id="startButton" type="button">ゲームスタート</button>
+    </section>
+
+    <section id="gameScreen" class="hidden">
+        <h1>一桁かけ算チャレンジ</h1>
+
+        <div class="stats">
+            <div class="stat">
+                残り時間
+                <strong><span id="time">60</span>秒</strong>
+            </div>
+            <div class="stat">
+                正解数
+                <strong id="score">0</strong>
+            </div>
+            <div class="stat">
+                問題数
+                <strong id="total">0</strong>
+            </div>
+        </div>
+
+        <p id="stage"></p>
+        <div id="question"></div>
+
+        <input id="answer" type="number" inputmode="numeric"
+               autocomplete="off" aria-label="答え">
+
+        <div id="feedback"></div>
+        <p id="message">答えを入力してください。</p>
+
+        <button id="submitButton" type="button">答える</button>
+    </section>
+
+    <section id="resultScreen" class="hidden">
+        <h1>ゲーム終了！</h1>
+        <p id="finalScore"></p>
+        <h2>まちがえた問題</h2>
+        <ol id="wrongList"></ol>
+        <button id="restartButton" type="button">もう一度遊ぶ</button>
+    </section>
+
+</div>
+
+<script>
+"use strict";
+
+const GAME_SECONDS = 60;
+
+let score = 0;
+let total = 0;
+let timeLeft = GAME_SECONDS;
+let timerId = null;
+let gameRunning = false;
+let answering = false;
+
+let firstNumber = 0;
+let secondNumber = 0;
+let wrongAnswers = [];
+
+const startScreen = document.getElementById("startScreen");
+const gameScreen = document.getElementById("gameScreen");
+const resultScreen = document.getElementById("resultScreen");
+
+const startButton = document.getElementById("startButton");
+const restartButton = document.getElementById("restartButton");
+const submitButton = document.getElementById("submitButton");
+
+const answerBox = document.getElementById("answer");
+const questionBox = document.getElementById("question");
+const stageBox = document.getElementById("stage");
+const feedbackBox = document.getElementById("feedback");
+const messageBox = document.getElementById("message");
+
+const timeBox = document.getElementById("time");
+const scoreBox = document.getElementById("score");
+const totalBox = document.getElementById("total");
+const finalScoreBox = document.getElementById("finalScore");
+const wrongListBox = document.getElementById("wrongList");
+
+function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function makeQuestion() {
+    const questionNumber = total + 1;
+
+    if (questionNumber <= 5) {
+        firstNumber = randomInt(2, 4);
+        secondNumber = randomInt(2, 4);
+        stageBox.textContent = "第1段階：2〜4 × 2〜4";
+
+    } else if (questionNumber <= 10) {
+        firstNumber = randomInt(2, 4);
+        secondNumber = randomInt(4, 9);
+        stageBox.textContent = "第2段階：2〜4 × 4〜9";
+
+    } else if (questionNumber <= 15) {
+        firstNumber = randomInt(5, 9);
+        secondNumber = randomInt(2, 4);
+        stageBox.textContent = "第3段階：5〜9 × 2〜4";
+
+    } else {
+        firstNumber = randomInt(1, 9);
+        secondNumber = randomInt(1, 9);
+        stageBox.textContent = "第4段階：1〜9 × 1〜9";
+    }
+
+    questionBox.textContent =
+        firstNumber + " × " + secondNumber + " = ?";
+
+    answerBox.value = "";
+    answerBox.focus();
+}
+
+function updateStats() {
+    timeBox.textContent = timeLeft;
+    scoreBox.textContent = score;
+    totalBox.textContent = total;
+}
+
+function startGame() {
+    clearInterval(timerId);
+
+    score = 0;
+    total = 0;
+    timeLeft = GAME_SECONDS;
+    gameRunning = true;
+    answering = false;
+    wrongAnswers = [];
+
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    gameScreen.classList.remove("hidden");
+
+    feedbackBox.textContent = "";
+    feedbackBox.style.color = "";
+    messageBox.textContent = "答えを入力してEnterキー！";
+
+    answerBox.disabled = false;
+    submitButton.disabled = false;
+
+    updateStats();
+    makeQuestion();
+
+    timerId = setInterval(function() {
+        if (!gameRunning) {
+            return;
+        }
+
+        timeLeft--;
+        updateStats();
+
+        if (timeLeft <= 0) {
+            endGame();
+        }
+    }, 1000);
+}
+
+function submitAnswer() {
+    if (!gameRunning || answering) {
+        return;
+    }
+
+    const rawAnswer = answerBox.value.trim();
+
+    if (rawAnswer === "") {
+        messageBox.textContent = "答えを入力してください。";
+        answerBox.focus();
+        return;
+    }
+
+    const userAnswer = Number(rawAnswer);
+    const correctAnswer = firstNumber * secondNumber;
+
+    total++;
+    answering = true;
+
+    answerBox.disabled = true;
+    submitButton.disabled = true;
+
+    if (userAnswer === correctAnswer) {
+        score++;
+        feedbackBox.textContent = "⭕️";
+        feedbackBox.style.color = "#00a651";
+        messageBox.textContent = "正解！";
+
+    } else {
+        feedbackBox.textContent = "❌";
+        feedbackBox.style.color = "#e53935";
+        messageBox.textContent = "正解は " + correctAnswer + " です。";
+
+        wrongAnswers.push({
+            question: firstNumber + " × " + secondNumber,
+            answer: userAnswer,
+            correct: correctAnswer
+        });
+    }
+
+    updateStats();
+
+    setTimeout(function() {
+        if (!gameRunning) {
+            return;
+        }
+
+        feedbackBox.textContent = "";
+        answerBox.disabled = false;
+        submitButton.disabled = false;
+        answering = false;
+
+        makeQuestion();
+    }, 600);
+}
+
+function endGame() {
+    if (!gameRunning) {
+        return;
+    }
+
+    gameRunning = false;
+    answering = false;
+    clearInterval(timerId);
+
+    answerBox.disabled = true;
+    submitButton.disabled = true;
+
+    gameScreen.classList.add("hidden");
+    resultScreen.classList.remove("hidden");
+
+    const rate = total === 0
+        ? 0
+        : Math.round((score / total) * 100);
+
+    finalScoreBox.textContent =
+        "正解数：" + score + "問 / " + total +
+        "問　正解率：" + rate + "%";
+
+    wrongListBox.innerHTML = "";
+
+    if (wrongAnswers.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "まちがえた問題はありません！";
+        wrongListBox.appendChild(li);
+
+    } else {
+        wrongAnswers.forEach(function(item) {
+            const li = document.createElement("li");
+
+            li.textContent =
+                item.question +
+                "　あなたの答え：" + item.answer +
+                "　正解：" + item.correct;
+
+            wrongListBox.appendChild(li);
+        });
+    }
+}
+
+startButton.addEventListener("click", startGame);
+restartButton.addEventListener("click", startGame);
+submitButton.addEventListener("click", submitAnswer);
+
+answerBox.addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        submitAnswer();
+    }
+});
+</script>
+
+</body>
+</html>
